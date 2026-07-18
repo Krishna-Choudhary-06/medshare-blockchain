@@ -1,32 +1,64 @@
 import { create } from 'zustand';
-
-interface User {
-  id: string;
-  name: string;
-  role: string;
-  organization: string;
-}
+import { persist } from 'zustand/middleware';
+import { User } from '@/types';
 
 interface AuthState {
-  user: User | null;
+  token: string | null;
+  refreshToken: string | null;
+  currentUser: User | null;
+  role: string | null;
+  permissions: string[];
   isAuthenticated: boolean;
-  login: (user: User, token: string) => void;
+  login: (data: { user: User; token: string; refreshToken?: string; permissions?: string[] }) => void;
   logout: () => void;
+  restoreSession: () => void; // Usually called to validate the existing token with the backend
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isAuthenticated: false,
-  login: (user, token) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', token);
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => ({
+      token: null,
+      refreshToken: null,
+      currentUser: null,
+      role: null,
+      permissions: [],
+      isAuthenticated: false,
+      login: ({ user, token, refreshToken, permissions = [] }) => {
+        set({
+          user: user, // user shouldn't be mapped to user, it's currentUser
+          currentUser: user,
+          role: user.role,
+          token,
+          refreshToken: refreshToken || null,
+          permissions,
+          isAuthenticated: true,
+        });
+      },
+      logout: () => {
+        set({
+          currentUser: null,
+          role: null,
+          token: null,
+          refreshToken: null,
+          permissions: [],
+          isAuthenticated: false,
+        });
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth-storage');
+        }
+      },
+      restoreSession: () => {
+        const state = get();
+        if (state.token && state.currentUser) {
+          // Additional logic to verify token validity can go here.
+          set({ isAuthenticated: true });
+        } else {
+          set({ isAuthenticated: false });
+        }
+      },
+    }),
+    {
+      name: 'auth-storage', // unique name
     }
-    set({ user, isAuthenticated: true });
-  },
-  logout: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-    }
-    set({ user: null, isAuthenticated: false });
-  },
-}));
+  )
+);
