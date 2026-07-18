@@ -48,6 +48,40 @@ class PrivacyLevel extends Contract {
         return JSON.stringify(record);
     }
 
+    async assignSensitivity(ctx, userId, sensitivity) {
+        const validSensitivities = ['LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH'];
+        if (!validSensitivities.includes(sensitivity)) {
+            throw new Error('Invalid sensitivity. Use LOW/MEDIUM/HIGH/VERY_HIGH');
+        }
+
+        const userBytes = await ctx.stub.getState('USER_' + userId);
+        if (!userBytes || userBytes.length === 0) {
+            throw new Error('User not registered: ' + userId);
+        }
+
+        const record = {
+            docType: 'SENSITIVITY',
+            userId,
+            sensitivity,
+            assignedAt: this._getTimestamp(ctx)
+        };
+
+        await ctx.stub.putState(
+            'SENS_' + userId,
+            Buffer.from(JSON.stringify(record))
+        );
+
+        return JSON.stringify(record);
+    }
+
+    async getSensitivity(ctx, userId) {
+        const data = await ctx.stub.getState('SENS_' + userId);
+        if (!data || data.length === 0) {
+            throw new Error('No sensitivity for: ' + userId);
+        }
+        return data.toString();
+    }
+
     _privacyRank(level) {
         const ranks = { L0: 0, L1: 1, L2: 2, L3: 3 };
         if (!(level in ranks)) {

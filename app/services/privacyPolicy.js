@@ -87,11 +87,18 @@ function canAccessRecord(userLevel, requiredLevel, { isOwner = false, isSubject 
 function isRecordOwner(record, userId) {
     const normalizedUser = String(userId || '').trim().toLowerCase();
     if (!normalizedUser) return false;
+
     const ownerCandidates = [
+        record?.ownerId,
         record?.uploadedBy,
+        record?.metadata?.ownerId,
         record?.metadata?.uploadedBy
     ];
-    return ownerCandidates.some((candidate) => String(candidate || '').trim().toLowerCase() === normalizedUser);
+
+    return ownerCandidates.some(
+        (candidate) =>
+            String(candidate || '').trim().toLowerCase() === normalizedUser
+    );
 }
 
 function isRecordSubject(record, userId) {

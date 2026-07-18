@@ -1,0 +1,41 @@
+version: '2'
+services:
+  orderer.example.com:
+    image: hyperledger/fabric-orderer:2.2
+    environment:
+      - ORDERER_GENERAL_LOGLEVEL=INFO
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_GENESISMETHOD=file
+      - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/orderer.genesis.block
+      - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+    volumes:
+      - ./system-genesis-block:/var/hyperledger/orderer
+    ports:
+      - 7050:7050
+
+  peer0.org1.example.com:
+    image: hyperledger/fabric-peer:2.2
+    environment:
+      - CORE_PEER_ID=peer0.org1.example.com
+      - CORE_PEER_ADDRESS=peer0.org1.example.com:7051
+      - CORE_PEER_LOCALMSPID=Org1MSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/msp/peer
+    volumes:
+      - ./crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com:/etc/hyperledger/msp
+    ports:
+      - 7051:7051
+
+  peer0.org2.example.com:
+    image: hyperledger/fabric-peer:2.2
+    environment:
+      - CORE_PEER_ID=peer0.org2.example.com
+      - CORE_PEER_ADDRESS=peer0.org2.example.com:9051
+      - CORE_PEER_LOCALMSPID=Org2MSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/msp/peer
+    volumes:
+      - ./crypto-config/peerOrganizations/org2.example.com/peers/peer0.org2.example.com:/etc/hyperledger/msp
+    ports:
+      - 9051:9051
+
+# NOTE: This is a lightweight scaffold. Use Fabric test-network scripts for a production-ready setup.

@@ -5,6 +5,7 @@
   "scripts": {
     "smoke:paper": "node testPaperWorkflow.js",
     "smoke:full": "node testFullWorkflow.js",
+    "test:medshare": "node --test tests/medshare.test.js",
     "benchmark": "node benchmark/runner.js",
     "benchmark:bgw": "node benchmark/bgwBenchmark.js",
     "benchmark:fabric": "node benchmark/fabricBenchmark.js",

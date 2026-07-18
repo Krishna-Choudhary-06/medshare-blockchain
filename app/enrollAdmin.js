@@ -41,7 +41,7 @@ async function main() {
     }
 
     // Register and enroll appUser
-    const userExists = await wallet.get('appUser');
+    const userExists = await wallet.get('appUser3');
     if (!userExists) {
         const adminIdentity = await wallet.get('admin');
         const provider = wallet.getProviderRegistry()

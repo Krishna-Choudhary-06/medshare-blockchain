@@ -70,6 +70,116 @@ async function assignLevel(userId, level) {
     }
 }
 
+async function assignSensitivity(userId, sensitivity) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.submitTransaction(
+            'PrivacyLevel:assignSensitivity', userId, sensitivity
+        );
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
+async function processRequest(requestId, requesterId, ownerId, action, sensitivity, timestamp) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.submitTransaction(
+            'DataAccess:processRequest', requestId, requesterId, ownerId, action, sensitivity, timestamp
+        );
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
+async function appendAudit(auditId, parentTransaction, action, owner, requestor, remarks) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.submitTransaction(
+            'DataAccess:appendAudit', auditId, parentTransaction, action, owner, requestor, remarks
+        );
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
+async function appendAuditBlock(auditId, parentDataId, packageId, requestId, requesterId, ownerId, action, status, comments, violation, processingNode, signature) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.submitTransaction(
+            'DataAccess:appendAuditBlock',
+            auditId,
+            parentDataId,
+            packageId,
+            requestId,
+            requesterId,
+            ownerId,
+            action,
+            status,
+            comments,
+            String(violation),
+            processingNode,
+            signature
+        );
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
+async function getAuditBlock(auditId) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.evaluateTransaction('DataAccess:getAuditBlock', auditId);
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
+async function getAllAuditBlocks() {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.evaluateTransaction('DataAccess:getAllAuditBlocks');
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
+async function getAction(requestId) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.evaluateTransaction('DataAccess:getAction', requestId);
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
+async function getSensitivity(requestId) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.evaluateTransaction('DataAccess:getSensitivity', requestId);
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
+async function revokeAccess(requesterId, dataId, reason = '') {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.submitTransaction('DataAccess:revokeAccess', requesterId, dataId, reason);
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
 async function getAllUsers() {
     const { contract, gateway } = await getContract();
     try {
@@ -187,6 +297,16 @@ async function requestAccess(requesterId, dataId) {
     }
 }
 
+async function accessControl(requestId, action) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.submitTransaction('DataAccess:accessControl', requestId, action);
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
 async function getLogs() {
     const { contract, gateway } = await getContract();
     try {
@@ -212,9 +332,41 @@ async function getData(dataId) {
         gateway.disconnect();
     }
 }
+async function recordDecryption(requestId, dataId, requestorId) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.submitTransaction(
+            'DataAccess:appendAudit', `decrypted_${requestId}`, requestId, 'DECRYPTED', dataId, requestorId, 'Requester reported decryption'
+        );
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
+
+async function reportViolation(collection, violationId, parentBlockID, ownerId, requestorId, violationType, nodeId, signature) {
+    const { contract, gateway } = await getContract();
+    try {
+        const result = await contract.submitTransaction(
+            'DataAccess:appendViolationPrivate', collection, violationId, parentBlockID, ownerId, requestorId, violationType, nodeId, signature
+        );
+        return JSON.parse(result.toString());
+    } finally {
+        gateway.disconnect();
+    }
+}
 module.exports = {
     registerUser,
     assignLevel,
+    assignSensitivity,
+    processRequest,
+    appendAudit,
+    appendAuditBlock,
+    getAuditBlock,
+    getAllAuditBlocks,
+    getAction,
+    getSensitivity,
+    revokeAccess,
     getAllUsers,
     getAllLevels,
     storeHash,
@@ -223,5 +375,7 @@ module.exports = {
     getAllData,
     requestAccess,
     getData,
+    recordDecryption,
+    reportViolation,
     getLogs
 };
