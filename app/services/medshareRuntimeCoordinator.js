@@ -159,35 +159,90 @@ class MedshareRuntimeCoordinator {
             });
 
             // Fabric processing
+            const fsmRequestId = processingContext.requestForm?.requestId || context.requestId;
+            const fsmAction = processingContext.requestForm?.purpose || 'READ';
+            const fsmSensitivity = processingContext.requestForm?.sensitivity || 'MEDIUM';
+
             await this.logStage('Fabric Metadata', context, async () => {
                 if (this.fabricService && this.fabricService.assignSensitivity) {
                     await this.fabricService.assignSensitivity(
                         processingContext.requestForm?.ownerId,
-                        processingContext.requestForm?.sensitivity || 'MEDIUM'
+                        fsmSensitivity
                     );
                 }
                 if (this.fabricService && this.fabricService.processRequest) {
                     await this.fabricService.processRequest(
-                        processingContext.requestForm?.requestId || context.requestId,
+                        fsmRequestId,
                         processingContext.requestForm?.requesterId,
                         processingContext.requestForm?.ownerId,
-                        processingContext.requestForm?.purpose || 'READ',
-                        processingContext.requestForm?.sensitivity || 'MEDIUM',
+                        fsmAction,
+                        fsmSensitivity,
                         new Date().toISOString()
                     );
                 }
                 return true;
             });
 
+            // Algorithm 1 FSM: MONITOR -> REPORT_CONTINUE (allowed) or REVOKE_AND_REPORT (violation)
+            const decision = await this.logStage('Access Control FSM', context, async () => {
+                if (this.fabricService && this.fabricService.accessControl) {
+                    return this.fabricService.accessControl(fsmRequestId, fsmAction);
+                }
+                return { status: 'UNKNOWN', fsm: 'SKIPPED' };
+            });
+
+            const isViolation = decision && decision.status === 'REVOKED';
+
+            // Parent block: record the completed request lifecycle regardless of outcome
+            const auditBlock = await this.logStage('Parent Block (Audit)', context, async () => {
+                if (this.fabricService && this.fabricService.appendAuditBlock) {
+                    return this.fabricService.appendAuditBlock(
+                        `audit_${context.requestId}`,
+                        processingContext.requestForm?.dataId || 'unknown',
+                        context.packageId,
+                        fsmRequestId,
+                        processingContext.requestForm?.requesterId,
+                        processingContext.requestForm?.ownerId,
+                        fsmAction,
+                        decision?.status || 'UNKNOWN',
+                        decision?.fsm || '',
+                        String(isViolation),
+                        'processing-node-1',
+                        processingContext.signature || ''
+                    );
+                }
+                return null;
+            });
+
+            // Side block: only logged when the FSM actually flags a violation
+            let violationRecord = null;
+            if (isViolation) {
+                violationRecord = await this.logStage('Side Block (Violation)', context, async () => {
+                    if (this.fabricService && this.fabricService.reportViolation) {
+                        return this.fabricService.reportViolation(
+                            '',
+                            `viol_${context.requestId}`,
+                            fsmRequestId,
+                            processingContext.requestForm?.ownerId,
+                            processingContext.requestForm?.requesterId,
+                            decision?.fsm || 'REVOKE_AND_REPORT',
+                            'processing-node-1',
+                            processingContext.signature || ''
+                        );
+                    }
+                    return null;
+                });
+            }
+
             await this.logStage('Fabric Audit', context, async () => {
                 if (this.fabricService && this.fabricService.appendAudit) {
                     await this.fabricService.appendAudit(
                         `audit_${context.requestId}`,
-                        processingContext.requestForm?.requestId || context.requestId,
-                        processingContext.requestForm?.purpose || 'READ',
+                        fsmRequestId,
+                        fsmAction,
                         processingContext.requestForm?.ownerId,
                         processingContext.requestForm?.requesterId,
-                        'MeDShare request pipeline completed.'
+                        isViolation ? 'MeDShare request pipeline completed: VIOLATION, access revoked.' : 'MeDShare request pipeline completed.'
                     );
                 }
                 return true;
@@ -200,7 +255,11 @@ class MedshareRuntimeCoordinator {
                 auditContext: context.getTransientData('auditContext'),
                 packageContext: context.getTransientData('packageContext'),
                 generatedContract,
-                packageEnvelope
+                packageEnvelope,
+                decision,
+                violation: isViolation,
+                auditBlock,
+                violationRecord
             };
 
         } catch (error) {
