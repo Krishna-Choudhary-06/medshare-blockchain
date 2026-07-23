@@ -44,6 +44,30 @@ describe('DataAccess FSM Tests (Algorithm 1)', () => {
         chaincodeStub.getTxID.returns('TXID-TEST-1');
         chaincodeStub.getTxTimestamp.returns({ seconds: { low: 1737300000 } });
 
+        // Composite-key support: real Fabric joins objectType + attributes with
+        // an internal delimiter; a simple JSON-encoded string is fine for tests
+        // as long as createCompositeKey / getStateByPartialCompositeKey agree.
+        chaincodeStub.createCompositeKey.callsFake((objectType, attributes) => {
+            return 'CK_' + objectType + '_' + attributes.join('_');
+        });
+
+        chaincodeStub.getStateByPartialCompositeKey.callsFake(async (objectType, attributes) => {
+            const prefix = 'CK_' + objectType + '_' + attributes.join('_');
+            const matches = Object.keys(chaincodeStub.states)
+                .filter(k => k.startsWith(prefix))
+                .map(k => ({ value: chaincodeStub.states[k] }));
+            let i = 0;
+            return {
+                next: async () => {
+                    if (i < matches.length) {
+                        return { value: matches[i++], done: false };
+                    }
+                    return { value: undefined, done: true };
+                },
+                close: async () => {}
+            };
+        });
+
         dataAccess = new DataAccess();
     });
 
@@ -173,6 +197,68 @@ describe('DataAccess FSM Tests (Algorithm 1)', () => {
 
             expect(result.stored).to.equal('public');
             expect(chaincodeStub.states['VIOL_viol-1']).to.not.be.undefined;
+        });
+
+        it('appendAuditBlock records the data sensitivity (Dsens) alongside the request', async () => {
+            await dataAccess.appendAuditBlock(
+                transactionContext, 'audit-2', 'record-1', 'pkg-1', 'req-2',
+                'doctor-1', 'patient-1', 'READ', 'REPORT_CONTINUE', '', 'false',
+                'node-1', 'sig-1', 'HIGH'
+            );
+
+            const stored = JSON.parse(await dataAccess.getAuditBlock(transactionContext, 'audit-2'));
+            expect(stored.sensitivity).to.equal('HIGH');
+        });
+    });
+
+    describe('Parent block / side-block linkage via composite key (Day 4)', () => {
+        it('sample transaction: one parent block with two linked side-block violations', async () => {
+            // Sample transaction 1: create the parent block (one request/record).
+            await dataAccess.appendAuditBlock(
+                transactionContext, 'audit-parent-1', 'record-99', 'pkg-99', 'req-99',
+                'doctor-9', 'patient-9', 'DELETE', 'REVOKED', 'first violation', 'true',
+                'node-1', 'sig-parent', 'HIGH'
+            );
+
+            // Sample transaction 2 & 3: two separate actions on that same data,
+            // both flagged as violations and linked back to the same parent block.
+            await dataAccess.appendViolationPrivate(
+                transactionContext, '', 'viol-99-a', 'audit-parent-1', 'patient-9',
+                'doctor-9', 'REVOKE_AND_REPORT', 'node-1', 'sig-a'
+            );
+            await dataAccess.appendViolationPrivate(
+                transactionContext, '', 'viol-99-b', 'audit-parent-1', 'patient-9',
+                'doctor-9', 'REVOKE_AND_REPORT', 'node-1', 'sig-b'
+            );
+
+            // An unrelated parent + side-block pair must not show up in the query.
+            await dataAccess.appendAuditBlock(
+                transactionContext, 'audit-parent-2', 'record-1', 'pkg-1', 'req-1',
+                'doctor-1', 'patient-1', 'READ', 'REPORT_CONTINUE', '', 'false',
+                'node-1', 'sig-other', 'LOW'
+            );
+            await dataAccess.appendViolationPrivate(
+                transactionContext, '', 'viol-other', 'audit-parent-2', 'patient-1',
+                'doctor-1', 'MONITOR', 'node-1', 'sig-other'
+            );
+
+            const linked = JSON.parse(await dataAccess.getViolationsByParent(transactionContext, 'audit-parent-1'));
+
+            expect(linked).to.have.lengthOf(2);
+            const violationIds = linked.map(v => v.violationId).sort();
+            expect(violationIds).to.deep.equal(['viol-99-a', 'viol-99-b']);
+            linked.forEach(v => expect(v.parentBlockID).to.equal('audit-parent-1'));
+        });
+
+        it('returns an empty list when a parent block has no violations', async () => {
+            await dataAccess.appendAuditBlock(
+                transactionContext, 'audit-clean-1', 'record-5', 'pkg-5', 'req-5',
+                'doctor-5', 'patient-5', 'READ', 'REPORT_CONTINUE', '', 'false',
+                'node-1', 'sig-clean', 'LOW'
+            );
+
+            const linked = JSON.parse(await dataAccess.getViolationsByParent(transactionContext, 'audit-clean-1'));
+            expect(linked).to.have.lengthOf(0);
         });
     });
 });

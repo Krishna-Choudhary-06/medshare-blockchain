@@ -208,7 +208,8 @@ class MedshareRuntimeCoordinator {
                         decision?.fsm || '',
                         String(isViolation),
                         'processing-node-1',
-                        processingContext.signature || ''
+                        processingContext.signature || '',
+                        fsmSensitivity
                     );
                 }
                 return null;
