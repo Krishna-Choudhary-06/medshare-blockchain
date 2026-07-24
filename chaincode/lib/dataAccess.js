@@ -177,7 +177,7 @@ class DataAccess extends Contract {
         return JSON.stringify(record);
     }
 
-    async appendAuditBlock(ctx, auditId, parentDataId, packageId, requestId, requesterId, ownerId, action, status, comments, violation, processingNode, signature) {
+    async appendAuditBlock(ctx, auditId, parentDataId, packageId, requestId, requesterId, ownerId, action, status, comments, violation, processingNode, signature, sensitivity) {
         const record = {
             docType: 'AUDITBLOCK',
             auditId,
@@ -187,6 +187,7 @@ class DataAccess extends Contract {
             requesterId,
             ownerId,
             action: String(action || '').toUpperCase(),
+            sensitivity: String(sensitivity || 'UNSPECIFIED').toUpperCase(),
             timestamp: this._getTimestamp(ctx),
             status: status || 'PENDING',
             comments: comments || '',
@@ -237,6 +238,12 @@ class DataAccess extends Contract {
             timestamp: this._getTimestamp(ctx)
         };
 
+        // Composite key: 'sideblock.byParent' -> [parentBlockID, violationId]
+        // This lets us fetch every side-block belonging to one parent block
+        // (getViolationsByParent) without scanning every violation on the ledger.
+        const linkKey = ctx.stub.createCompositeKey('sideblock.byParent', [parentBlockID, violationId]);
+        await ctx.stub.putState(linkKey, Buffer.from('VIOL_' + violationId));
+
         // try private data collection first
         try {
             if (collection && typeof ctx.stub.putPrivateData === 'function') {
@@ -251,6 +258,22 @@ class DataAccess extends Contract {
         await ctx.stub.putState('VIOL_' + violationId, Buffer.from(JSON.stringify(record)));
         ctx.stub.setEvent('ViolationRecorded', Buffer.from(JSON.stringify({ violationId, parentBlockID })));
         return JSON.stringify({ stored: 'public', violationId });
+    }
+
+    async getViolationsByParent(ctx, parentBlockID) {
+        const iterator = await ctx.stub.getStateByPartialCompositeKey('sideblock.byParent', [parentBlockID]);
+        const violations = [];
+        let res = await iterator.next();
+        while (!res.done) {
+            const stateKey = res.value.value.toString(); // e.g. 'VIOL_viol-1'
+            const violationBytes = await ctx.stub.getState(stateKey);
+            if (violationBytes && violationBytes.length > 0) {
+                violations.push(JSON.parse(violationBytes.toString()));
+            }
+            res = await iterator.next();
+        }
+        await iterator.close();
+        return JSON.stringify(violations);
     }
 
     async requestAccess(ctx, requesterId, dataId) {
