@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-07-24T03:56:19.648Z",
+  "scope": "in-process chaincode execution only, no live Fabric network",
+  "iterations": 60,
+  "baseline": {
+    "label": "nodejs_baseline_only",
+    "runs": 60,
+    "minMs": 0.0235,
+    "maxMs": 0.1289,
+    "avgMs": 0.0402,
+    "medianMs": 0.034,
+    "stddevMs": 0.0197
+  },
+  "fullPipeline": {
+    "label": "baseline_plus_inprocess_chaincode_fsm",
+    "runs": 60,
+    "minMs": 0.0762,
+    "maxMs": 0.3081,
+    "avgMs": 0.1515,
+    "medianMs": 0.133,
+    "stddevMs": 0.0567
+  },
+  "overheadMs": 0.1113,
+  "overheadPct": 276.87
+}

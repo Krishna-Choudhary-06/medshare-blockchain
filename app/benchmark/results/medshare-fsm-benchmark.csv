@@ -1,0 +1,3 @@
+label,runs,minMs,maxMs,avgMs,medianMs,stddevMs
+nodejs_baseline_only,60,0.0235,0.1289,0.0402,0.034,0.0197
+baseline_plus_inprocess_chaincode_fsm,60,0.0762,0.3081,0.1515,0.133,0.0567

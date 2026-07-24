@@ -12,6 +12,7 @@
     "benchmark:ipfs": "node benchmark/ipfsBenchmark.js",
     "benchmark:e2e": "node benchmark/e2eBenchmark.js",
     "benchmark:overhead": "node benchmark/overheadBenchmark.js",
+    "benchmark:fsm": "node benchmark/medshareFsmBenchmark.js",
     "benchmark:quick": "node benchmark/runner.js --quick",
     "benchmark:all": "node benchmark/runner.js --all"
   },
@@ -20,6 +21,7 @@
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "fabric-ca-client": "^2.2.20",
+    "fabric-contract-api": "^2.5.3",
     "fabric-network": "^2.2.20",
     "ipfs-http-client": "^59.0.0",
     "mcl-wasm": "^2.2.0",
