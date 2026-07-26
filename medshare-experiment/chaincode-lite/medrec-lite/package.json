@@ -1,0 +1,20 @@
+{
+  "name": "medrec-lite",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "fabric-chaincode-node start",
+    "test": "mocha test --recursive"
+  },
+  "engines": { "node": ">=18.0.0" },
+  "dependencies": {
+    "fabric-contract-api": "2.5.3",
+    "fabric-shim": "2.5.3"
+  },
+  "devDependencies": {
+    "mocha": "^10.7.3",
+    "chai": "^4.4.1",
+    "sinon": "^18.0.0",
+    "sinon-chai": "^3.7.0"
+  }
+}
