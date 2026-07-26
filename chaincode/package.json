@@ -18,5 +18,8 @@
     "chai": "^4.4.1",
     "sinon": "^18.0.0",
     "sinon-chai": "^3.7.0"
+  },
+  "overrides": {
+    "color-name": "1.1.3"
   }
 }
